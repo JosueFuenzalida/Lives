@@ -9,7 +9,6 @@
     <style>
         /* PALETAS DE COLORES SOBRIAS Y AJUSTADAS */
         :root {
-            /* Tema 1: Azul Ejecutivo (Fondo suave con tono frío) */
             --bg-color: #eef2f5; 
             --card-bg: #ffffff;
             --accent-color: #2980b9;
@@ -19,7 +18,6 @@
         }
 
         [data-theme="verde"] {
-            /* Tema 2: Verde Oliva / Nórdico (Fondo tono arena claro) */
             --bg-color: #eaeae6; 
             --card-bg: #ffffff;
             --accent-color: #16a085;
@@ -29,7 +27,6 @@
         }
 
         [data-theme="oscuro"] {
-            /* Tema 3: Modo Noche Profesional */
             --bg-color: #1a1a24;
             --card-bg: #242533;
             --accent-color: #3498db;
@@ -38,7 +35,7 @@
             --muted-text: #95a5a6;
         }
 
-        /* ESTILOS INTERFAZ BASE (SIMULACIÓN MÓVIL PWA) */
+        /* ESTILOS INTERFAZ BASE */
         * {
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
@@ -67,6 +64,7 @@
             border-bottom: 1px solid var(--input-border);
             font-size: 16px;
             font-weight: bold;
+            min-height: 55px;
         }
 
         .btn-close {
@@ -85,18 +83,19 @@
             flex: 1;
             overflow-y: auto;
             padding: 15px;
-            padding-bottom: 80px; /* Espacio para no tapar la nav-bar */
+            padding-bottom: 90px;
         }
 
+        /* CONTROL VISUAL DE PANTALLAS CORREGIDO */
         .view {
-            display: none; /* Controlado por JS */
+            display: none !important; 
         }
 
         .view.active {
-            display: block;
+            display: block !important;
         }
 
-        /* COMPONENTES DE FORMULARIO COMUNES */
+        /* COMPONENTES DE FORMULARIO */
         .form-group {
             margin-bottom: 15px;
         }
@@ -129,72 +128,67 @@
             letter-spacing: 1px;
         }
 
-        /* TARJETAS / ACORDEONES */
+        /* TARJETAS Y ACORDEONES */
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--input-border);
             border-radius: 12px;
             padding: 15px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
-        .accordion-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .accordion-content {
-            display: none;
-            padding-top: 15px;
-            border-top: 1px solid var(--input-border);
-            margin-top: 10px;
-        }
-
-        /* BOTONES DE PRENDAS */
+        /* GRILLA DE BOTONES DE PRENDA */
         .prendas-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 20px 0;
+            gap: 12px;
+            margin: 15px 0;
         }
 
         .btn-prenda {
             background-color: var(--card-bg);
             border: 1px solid var(--input-border);
             color: var(--text-color);
-            padding: 14px;
-            border-radius: 10px;
+            padding: 16px 12px;
+            border-radius: 12px;
             font-size: 14px;
-            font-weight: 500;
-            text-align: left;
+            font-weight: bold;
+            text-align: center;
             cursor: pointer;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            transition: all 0.1s ease;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .btn-prenda:active {
+            transform: scale(0.97);
         }
 
         .btn-prenda.active {
-            border: 2px solid var(--accent-color);
-            background-color: rgba(41, 128, 185, 0.08);
+            border: 2px solid var(--accent-color) !important;
+            background-color: rgba(41, 128, 185, 0.12) !important;
+            color: var(--accent-color);
         }
 
         [data-theme="verde"] .btn-prenda.active {
-            background-color: rgba(22, 160, 133, 0.08);
+            background-color: rgba(22, 160, 133, 0.12) !important;
+            color: var(--accent-color);
         }
 
         [data-theme="oscuro"] .btn-prenda.active {
-            background-color: rgba(52, 152, 219, 0.15);
+            background-color: rgba(52, 152, 219, 0.20) !important;
         }
 
         .btn-prenda span {
-            margin-right: 10px;
-            font-size: 18px;
+            font-size: 24px;
         }
 
-        /* BOTONES DE ACCIÓN */
+        /* BOTONES DE ACCIÓN GENERALES */
         .btn-block {
             width: 100%;
             border: none;
@@ -203,12 +197,17 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            transition: background 0.1s ease;
         }
 
         .btn-action {
             background-color: var(--accent-color);
             color: white;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn-action:active {
+            opacity: 0.9;
         }
 
         .btn-secondary {
@@ -229,7 +228,7 @@
             background-color: #27ae60;
             color: white;
             border: none;
-            font-size: 24px;
+            font-size: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -247,22 +246,24 @@
             border-top: 1px solid var(--input-border);
             display: flex;
             justify-content: space-around;
-            padding: 10px 0;
+            padding: 8px 0;
             z-index: 100;
+            min-height: 65px;
         }
 
         .nav-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            font-size: 10px;
+            justify-content: center;
+            font-size: 11px;
             color: var(--muted-text);
             font-weight: bold;
-            text-decoration: none;
             background: none;
             border: none;
             cursor: pointer;
             width: 25%;
+            gap: 4px;
         }
 
         .nav-item.active {
@@ -270,9 +271,8 @@
         }
 
         .nav-item svg {
-            width: 22px;
-            height: 22px;
-            margin-bottom: 2px;
+            width: 24px;
+            height: 24px;
             fill: currentColor;
         }
     </style>
@@ -288,45 +288,45 @@
     <!-- CONTENEDOR DE LAS PANTALLAS -->
     <div class="content-container">
 
-        <!-- PANTALLA 0: INICIAR LIVE -->
+        <!-- PANTALLA 0: INICIAR LIVE (Activa por defecto) -->
         <div id="view-inicio" class="view active">
-            <div class="card" style="margin-top: 30px;">
-                <h2 style="margin-top: 0; text-align: center;">Iniciar Nueva Transmisión</h2>
+            <div class="card" style="margin-top: 20px;">
+                <h2 style="margin-top: 0; text-align: center; font-size: 20px;">Iniciar Transmisión</h2>
                 <div class="form-group">
                     <label>Nombre del Live</label>
                     <input type="text" id="init-live-name" class="form-control" placeholder="Ej: LIVE 10-06-2026">
                 </div>
                 <div class="form-group">
                     <label>Comentario u Observación (Opcional)</label>
-                    <input type="text" id="init-live-comment" class="form-control" placeholder="Ej: Ropa de invierno premium">
+                    <input type="text" id="init-live-comment" class="form-control" placeholder="Ej: Avance de temporada">
                 </div>
-                <button id="btn-start-live" class="btn-block btn-action" style="margin-top: 15px; font-size: 18px;">INICIAR LIVE</button>
+                <button id="btn-start-live" class="btn-block btn-action" style="margin-top: 10px;">INICIAR TRANSMISIÓN</button>
             </div>
         </div>
 
         <!-- PANTALLA 1: VENTAS -->
         <div id="view-venta" class="view">
             <div class="form-group">
-                <label>Ingresar Código de Prenda</label>
+                <label>Código de Prenda</label>
                 <input type="text" id="venta-codigo" class="form-control form-control-lg" placeholder="CÓDIGO">
             </div>
 
             <div class="form-group">
-                <label>Clienta</label>
+                <label>Clienta Adjudicada</label>
                 <select id="venta-clienta" class="form-control">
                     <!-- Se llena dinámicamente -->
                 </select>
             </div>
 
             <div class="form-group">
-                <label>Precio ($)</label>
+                <label>Precio de Venta ($)</label>
                 <input type="number" id="venta-precio" class="form-control" placeholder="0">
             </div>
 
             <div class="form-group">
-                <label>Categoría de Prenda</label>
+                <label>Seleccionar Tipo de Prenda</label>
                 <div id="prendas-container" class="prendas-grid">
-                    <!-- Los 4 botones se inyectan dinámicamente desde JS -->
+                    <!-- Los 4 botones dinámicos se inyectan aquí -->
                 </div>
             </div>
 
@@ -336,10 +336,10 @@
         <!-- PANTALLA 2: CLIENTES -->
         <div id="view-clientes" class="view">
             <div class="form-group">
-                <input type="text" id="search-clientes" class="form-control" placeholder="🔍 Buscar clienta...">
+                <input type="text" id="search-clientes" class="form-control" placeholder="🔍 Buscar clienta por nombre...">
             </div>
             <div id="clientes-list">
-                <!-- Los acordeones de las clientas se inyectan aquí -->
+                <!-- Los acordeones se cargan aquí -->
             </div>
             <button id="fab-add-cliente" class="btn-fab">+</button>
         </div>
@@ -349,24 +349,24 @@
             <div class="form-group">
                 <label>Seleccionar Historial de Live</label>
                 <select id="informe-live-select" class="form-control">
-                    <!-- Opciones de fechas de lives pasados -->
+                    <!-- Se llena desde informes.js -->
                 </select>
             </div>
 
             <div class="card">
-                <label style="font-size: 11px; font-weight: bold; color: var(--muted-text); display: block; margin-bottom: 5px;">VISTA EN TEXTO PLANO</label>
+                <label style="font-size: 11px; font-weight: bold; color: var(--muted-text); display: block; margin-bottom: 5px;">Texto de Resumen</label>
                 <textarea id="informe-text-out" class="form-control" rows="12" style="font-family: monospace; font-size: 13px; resize: none; background: var(--bg-color);" readonly></textarea>
             </div>
 
-            <button id="btn-copy-text" class="btn-block btn-secondary">📋 COPIAR TEXTO</button>
+            <button id="btn-copy-text" class="btn-block btn-secondary">📋 COPIAR AL PORTAPAPELES</button>
             <button id="btn-share-whatsapp" class="btn-block btn-secondary" style="border-color: #27ae60; color: #27ae60;">💬 ENVIAR POR WHATSAPP</button>
         </div>
 
         <!-- PANTALLA 4: AJUSTES -->
         <div id="view-ajustes" class="view">
             <div class="card">
-                <h3 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: var(--muted-text);">🎨 Paleta de Colores</h3>
-                <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <h3 style="margin-top:0; font-size: 13px; text-transform: uppercase; color: var(--muted-text);">🎨 Paleta de Colores</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                     <label><input type="radio" name="theme-opt" value="azul" checked> Azul Ejecutivo</label>
                     <label><input type="radio" name="theme-opt" value="verde"> Verde Oliva</label>
                     <label><input type="radio" name="theme-opt" value="oscuro"> Modo Noche</label>
@@ -374,37 +374,37 @@
             </div>
 
             <div class="card">
-                <h3 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: var(--muted-text);">⚙️ Lógica de Códigos</h3>
-                <div style="margin-top: 10px;">
-                    <label style="display: block; margin-bottom: 8px;">
-                        <input type="radio" name="codigo-mode" value="manual" checked> Etiquetar ANTES (Manual)
-                    </label>
-                    <label style="display: block;">
-                        <input type="radio" name="codigo-mode" value="auto"> Etiquetar DESPUÉS (Correlativo automático)
-                    </label>
+                <h3 style="margin-top:0; font-size: 13px; text-transform: uppercase; color: var(--muted-text);">⚙️ Lógica de Códigos</h3>
+                <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                    <label><input type="radio" name="codigo-mode" value="manual" checked> Etiquetar ANTES (Manual)</label>
+                    <label><input type="radio" name="codigo-mode" value="auto"> Etiquetar DESPUÉS (Correlativo automático)</label>
                 </div>
             </div>
 
             <div class="card">
-                <h3 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: var(--muted-text);">👕 Configurar Categorías Rápidas</h3>
+                <h3 style="margin-top:0; font-size: 13px; text-transform: uppercase; color: var(--muted-text);">👕 Configurar Categorías Rápidas</h3>
                 <div id="config-botones-list" style="margin-top: 10px;">
-                    <!-- Se inyectarán desde JS para editar nombres y prefijos -->
+                    <!-- Se llena dinámicamente -->
                 </div>
-                <button id="btn-save-botones" class="btn-block btn-secondary" style="margin-top: 10px; font-size: 13px;">Guardar Categorías</button>
+                <button id="btn-save-botones" class="btn-block btn-secondary" style="margin-top: 10px; font-size: 13px;">Guardar Cambios de Botones</button>
             </div>
 
             <div class="card">
-                <h3 style="margin-top:0; font-size: 14px; text-transform: uppercase; color: var(--muted-text);">💾 Respaldos de Seguridad</h3>
+                <h3 style="margin-top:0; font-size: 13px; text-transform: uppercase; color: var(--muted-text);">💾 Respaldos de Seguridad</h3>
                 <button id="btn-export-backup" class="btn-block btn-secondary" style="font-size: 13px;">📥 Exportar Datos (Backup .JSON)</button>
-                <button id="btn-import-backup" class="btn-block btn-secondary" style="font-size: 13px;">📤 Importar Datos desde archivo</button>
+                <button id="btn-import-backup" class="btn-block btn-secondary" style="font-size: 13px;">📤 Importar Datos desde Archivo</button>
                 <input type="file" id="file-import-input" style="display: none;" accept=".json">
             </div>
         </div>
 
     </div>
 
-    <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA -->
+    <!-- BARRA DE NAVEGACIÓN INFERIOR -->
     <nav class="nav-bar">
+        <button class="nav-item" data-target="view-inicio">
+            <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            Inicio
+        </button>
         <button class="nav-item active" data-target="view-venta" id="nav-btn-venta">
             <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
             Venta
@@ -423,7 +423,7 @@
         </button>
     </nav>
 
-    <!-- CONTROL DE ENLACES PARA BUBBLEWRAP -->
+    <!-- EL ORDEN DE CARGA IMPORTA PARA BUBBLEWRAP Y PARA QUE LA LOGICA INICIALICE BIEN -->
     <script src="js/main.js"></script>
     <script src="js/ventas.js"></script>
     <script src="js/clientes.js"></script>
