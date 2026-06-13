@@ -1,0 +1,18 @@
+{
+  "name": "RopasLive Panel",
+  "short_name": "RopasLive",
+  "description": "Sistema modular de gestión de prendas y ventas para transmisiones en vivo.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1c1d24",
+  "theme-color": "#2c3e50",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3050/3050227.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
