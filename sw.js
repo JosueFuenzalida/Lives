@@ -1,4 +1,4 @@
-const C = 'clementina-v1';
+const C = 'clementina-v2';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.json', 'icons/logo.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x))))));
