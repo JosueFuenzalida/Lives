@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clementina</title>
+<meta name="theme-color" content="#e0e8f5">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/logo.svg">
+<link rel="apple-touch-icon" href="icons/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <img src="icons/logo.svg" alt="" class="logo">
+  <div class="brand"><h1>Clementina</h1><small>Ventas de ropa</small></div>
+  <button id="cfg" class="sq" aria-label="Ajustes">⚙</button>
+</header>
+<main id="view"></main>
+<nav id="nav">
+  <button data-v="ventas"><svg viewBox="0 0 24 24"><path d="M6 7h12l1 14H5z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>Ventas</button>
+  <button data-v="clientes"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Clientes</button>
+  <button data-v="informes"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Informes</button>
+</nav>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "Clementina",
+  "short_name": "Clementina",
+  "description": "Registro de ventas de ropa",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edf1f9",
+  "theme_color": "#e0e8f5",
+  "icons": [{ "src": "icons/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
