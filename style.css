@@ -48,7 +48,6 @@ fieldset:disabled{opacity:.45;filter:grayscale(.6);pointer-events:none}
 .sw button{width:40px;height:40px;border-radius:50%;border:3px solid transparent;cursor:pointer}
 .sw button.on{border-color:var(--ink)}
 .seg{display:flex;gap:8px}.seg .btn{flex:1}
-.seg .btn:not(.on){background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:none}
 dialog{border:0;border-radius:22px;background:var(--bg);color:var(--ink);width:min(92vw,420px);padding:20px}
 dialog::backdrop{background:rgba(10,15,30,.55)}
 dialog form{display:grid;gap:14px}
@@ -63,3 +62,14 @@ dialog{max-height:90vh;overflow:auto}
 .err{color:var(--bad);font-size:14px}.err:empty{display:none}
 .msg{display:grid;gap:12px}.msg .val.ok{visibility:hidden}.msg.done{border-left:6px solid var(--ok)}.msg.done .val.ok{visibility:visible}
 .item small+small{display:block;margin-top:2px}
+.sw2{position:relative;display:grid;grid-template-columns:1fr 1fr;height:42px;border:1px solid var(--line);border-radius:14px;background:var(--in);overflow:hidden}
+.sw2::before{content:"";position:absolute;inset:3px auto 3px 3px;width:calc(50% - 3px);border-radius:11px;background:var(--acc);transition:transform .2s}
+.sw2.r::before{transform:translateX(100%)}
+.sw2 button{position:relative;border:0;background:none;color:var(--mute);font:700 16px var(--font);letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:color .2s}
+.sw2 button.on{color:#fff}
+.tap{cursor:pointer}
+.back{width:fit-content;justify-self:start}
+.line{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px dashed var(--line);font-size:15px}
+.btn.okb{background:var(--ok);box-shadow:none}
+.pr{padding-top:12px;margin-top:10px;border-top:1px solid var(--line)}
+.pr .btn{flex:none}

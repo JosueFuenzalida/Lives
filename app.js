@@ -14,13 +14,14 @@ Cuenta: 17.540.416-3
 Una vez realizada la transferencia, envíame el comprobante para coordinar la entrega.
 
 ¡Muchísimas gracias por confiar en Clementina! 💖 Espero que disfrutes mucho tu nueva prenda. Será un gusto atenderte nuevamente.`;
-const DEF = { clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {} };
+const DEF = { clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {}, pay: {}, hist: 5 };
 let S = (() => { try { return { ...DEF, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return { ...DEF }; } })();
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 const $ = s => document.querySelector(s);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const money = n => '$' + Math.round(n).toLocaleString('es-CL');
 const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const ymd = t => { const d = new Date(t); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const fdate = s => s ? s.split('-').reverse().join('/') : '';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 2200); };
@@ -32,7 +33,12 @@ const MODES = { region: 'Envío a regiones', domicilio: 'Despacho a domicilio', 
 const dname = c => { const n = (c.name || '').trim(), k = (c.nick || '').trim(); return S.show === 'nick' ? (k || n + '*') : (n || k + '*'); };
 const cdisp = s => { const c = cl(s.client); return c ? dname(c) : (s.cn || 'Sin cliente'); };
 const sorted = () => [...S.clients].sort((a, b) => dname(a).localeCompare(dname(b)));
-let V = 'ventas';
+let V = 'ventas', CID = '';
+const full = c => [c.name, c.nick && `[${c.nick}]`].filter(Boolean).join(' - ');
+const pkey = (e, c) => e + '|' + c;
+const isPaid = (e, c) => !!S.pay[pkey(e, c)];
+const setPaid = (e, c) => { const k = pkey(e, c); if (S.pay[k]) delete S.pay[k]; else S.pay[k] = Date.now(); save(); };
+const keepY = fn => { const y = scrollY; fn(); scrollTo(0, y); };
 const R = { from: '', to: '', client: '', sort: 'date', dir: 'desc' };
 
 function applyTheme() { const r = document.documentElement; r.className = S.theme; r.style.setProperty('--acc', S.accent); }
@@ -69,8 +75,8 @@ function clientDlg(c, done, quick) {
 /* ---------- navegación ---------- */
 function go(v) { V = v; render(); window.scrollTo(0, 0); }
 function render() {
-  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === V));
-  ({ ventas: vVentas, clientes: vClientes, informes: vInformes, ajustes: vAjustes })[V]();
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === (V === 'cliente' ? 'clientes' : V)));
+  ({ cliente: vCliente, ventas: vVentas, clientes: vClientes, informes: vInformes, ajustes: vAjustes })[V]();
 }
 
 /* ---------- ventas ---------- */
@@ -90,7 +96,7 @@ function vVentas(k) {
     <label>Descripción<input id="d" autocomplete="off"></label>
     <label>Valor<input id="v" inputmode="numeric" autocomplete="off"></label>
     <label>Cliente<select id="c">${opts}</select></label>
-    <div class="tri"><button type="button" class="btn sm ${S.show === 'nick' ? '' : 'ghost'}" id="sn">Nick</button><button type="button" class="btn sm ${S.show === 'name' ? '' : 'ghost'}" id="sm">Nombre</button><button type="button" class="btn sm outl" id="nc">+ Agregar</button></div>
+    <div class="row"><div class="sw2 ${S.show === 'name' ? 'r' : ''}" id="sw"><button type="button" id="sn" class="${S.show === 'nick' ? 'on' : ''}">Nick</button><button type="button" id="sm" class="${S.show === 'name' ? 'on' : ''}">Nombre</button></div><button type="button" class="btn sm outl fix" id="nc">+ Agregar</button></div>
     <button class="btn" id="add">Ingresar venta</button>
   </fieldset>
   ${e ? (sales.length ? sales.map(s => `<div class="card item"><div class="t"><b>#${esc(s.n || '–')} ${esc(s.desc)}</b><small>${esc(cdisp(s))}</small></div><span class="val">${money(s.value)}</span><button class="x" data-del="${s.id}" aria-label="Eliminar">✕</button></div>`).join('') : '<p class="empty">Aún no hay ventas en este evento.</p>')
@@ -104,8 +110,8 @@ function vVentas(k) {
   if (!e) return;
   const f = () => ({ n: $('#n').value, d: $('#d').value, v: $('#v').value, c: $('#c').value });
   if (k) { $('#n').value = k.n; $('#d').value = k.d; $('#v').value = k.v; if (k.c) $('#c').value = k.c; }
-  $('#sn').onclick = () => { S.show = 'nick'; save(); vVentas(f()); };
-  $('#sm').onclick = () => { S.show = 'name'; save(); vVentas(f()); };
+  const sw = v => () => { S.show = v; save(); $('#sw').classList.toggle('r', v === 'name'); $('#sn').classList.toggle('on', v === 'nick'); $('#sm').classList.toggle('on', v === 'name'); setTimeout(() => { if (V === 'ventas') vVentas(f()); }, 220); };
+  $('#sn').onclick = sw('nick'); $('#sm').onclick = sw('name');
   $('#nc').onclick = () => clientDlg(null, c => vVentas({ ...f(), c: c.id }), true);
   $('#add').onclick = () => {
     const value = parseFloat(String($('#v').value).replace(/[^\d.]/g, '')), client = $('#c').value, c = cl(client);
@@ -121,18 +127,33 @@ function vVentas(k) {
 
 /* ---------- clientes ---------- */
 function vClientes() {
-  $('#view').innerHTML = `<h2>Clientes</h2>` + (S.clients.length ? sorted().map(c => {
-    const n = S.sales.filter(s => s.client === c.id), alt = S.show === 'nick' ? c.name : c.nick;
-    const info = [MODES[c.mode], c.phone, c.social].filter(Boolean).join(' · ');
-    return `<div class="card item"><div class="t"><b>${esc(dname(c))}</b><small>${alt ? esc(alt) + ' · ' : ''}${n.length} compras · ${money(n.reduce((a, s) => a + s.value, 0))}</small>${info ? `<small>${esc(info)}</small>` : ''}</div><button class="x" data-e="${c.id}" aria-label="Editar">✎</button><button class="x" data-x="${c.id}" aria-label="Eliminar">✕</button></div>`;
-  }).join('') : '<p class="empty">Aún no hay clientes. Toca + para agregar uno.</p>') + `<button class="fab" id="fab" aria-label="Agregar cliente">+</button>`;
+  $('#view').innerHTML = `<h2>Clientes</h2>` + (S.clients.length ? sorted().map(c => `<div class="card item tap" data-o="${c.id}"><div class="t"><b>${esc(full(c))}</b></div><button class="x" data-e="${c.id}" aria-label="Editar">✎</button><button class="x" data-x="${c.id}" aria-label="Eliminar">✕</button></div>`).join('') : '<p class="empty">Aún no hay clientes. Toca + para agregar uno.</p>') + `<button class="fab" id="fab" aria-label="Agregar cliente">+</button>`;
   $('#fab').onclick = () => clientDlg(null, vClientes);
-  document.querySelectorAll('[data-e]').forEach(b => b.onclick = () => clientDlg(cl(b.dataset.e), vClientes));
-  document.querySelectorAll('[data-x]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-o]').forEach(el => el.onclick = () => { CID = el.dataset.o; go('cliente'); });
+  document.querySelectorAll('[data-e]').forEach(b => b.onclick = ev => { ev.stopPropagation(); clientDlg(cl(b.dataset.e), vClientes); });
+  document.querySelectorAll('[data-x]').forEach(b => b.onclick = ev => {
+    ev.stopPropagation();
     const c = cl(b.dataset.x);
-    if (S.sales.some(s => s.client === c.id)) return alert('No se puede eliminar: ' + dname(c) + ' tiene ventas registradas.');
-    if (confirm(`¿Eliminar a ${dname(c)}?`)) { S.clients = S.clients.filter(x => x !== c); save(); vClientes(); }
+    if (S.sales.some(s => s.client === c.id)) return alert('No se puede eliminar: ' + full(c) + ' tiene ventas registradas.');
+    if (confirm(`¿Eliminar a ${full(c)}?`)) { S.clients = S.clients.filter(x => x !== c); save(); vClientes(); }
   });
+}
+function vCliente() {
+  const c = cl(CID); if (!c) return go('clientes');
+  const mine = S.sales.filter(s => s.client === c.id);
+  const evs = [...new Set(mine.map(s => s.event))].map(id => S.events.find(e => e.id === id)).filter(Boolean).sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start);
+  const tot = e => mine.filter(s => s.event === e.id).reduce((a, s) => a + s.value, 0);
+  const debt = evs.filter(e => !isPaid(e.id, c.id)).reduce((a, e) => a + tot(e), 0);
+  const shown = S.hist > 0 ? evs.slice(0, S.hist) : evs;
+  const info = [MODES[c.mode], c.phone, c.social, [c.addr, c.city].filter(Boolean).join(', '), c.rut && 'RUT ' + c.rut, c.note].filter(Boolean);
+  $('#view').innerHTML = `<button class="btn sm ghost back" id="bk">← Clientes</button>
+  <div class="card"><div class="item"><div class="t"><h2>${esc(full(c))}</h2></div><button class="x" id="ed" aria-label="Editar">✎</button></div>${info.map(i => `<small style="display:block;margin-top:4px">${esc(i)}</small>`).join('')}</div>
+  <div class="card total"><small>Pendiente de pago</small><b style="color:var(--${debt ? 'warn' : 'ok'})">${money(debt)}</b></div>
+  ${shown.length ? shown.map(e => { const ss = mine.filter(s => s.event === e.id).sort((a, b) => a.t - b.t), paid = S.pay[pkey(e.id, c.id)]; return `<div class="card msg ${paid ? 'done' : ''}"><div class="item"><div class="t"><b>${fdate(e.date)}${e.end ? '' : ' · abierto'}</b><small>${pl(ss.length)} · ${paid ? 'Pagado' : 'Pendiente'}</small></div><span class="val">${money(tot(e))}</span></div>${ss.map(x => `<div class="line"><span>#${esc(x.n || '–')} ${esc(x.desc)}</span><span>${money(x.value)}</span></div>`).join('')}<button class="btn sm ${paid ? 'okb' : 'outl'}" data-p="${e.id}">${paid ? 'Pagado ✓ ' + fdate(ymd(paid)) : 'Marcar como pagado'}</button></div>`; }).join('') : '<p class="empty">Este cliente aún no tiene compras.</p>'}
+  ${evs.length > shown.length ? `<p class="empty">Mostrando los últimos ${shown.length} de ${evs.length} eventos. Cámbialo en Ajustes.</p>` : ''}`;
+  $('#bk').onclick = () => go('clientes');
+  $('#ed').onclick = () => clientDlg(c, vCliente);
+  document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => keepY(() => { setPaid(b.dataset.p, c.id); vCliente(); }));
 }
 
 /* ---------- informes ---------- */
@@ -182,23 +203,36 @@ function buildTxt(rs) {
     Object.keys(g).forEach(d => { o += `*${fdate(d)}*\n${g[d].map(line).join('\n')}\nSubtotal: ${money(sum(g[d]))}\n\n`; });
   } else o += rs.map(r => `${fdate(r.date)} ${line(r)}`).join('\n') + '\n\n';
   o += '*Total por cliente*\n' + [...gs].sort((a, b) => sum(b.rows) - sum(a.rows)).map(g => `${g.cn}: ${money(sum(g.rows))}`).join('\n');
-  return o + `\n\n*TOTAL: ${money(sum(rs))}* (${pl(rs.length)})\n\n` + packs(gs);
+  return o + `\n\n*TOTAL: ${money(sum(rs))}* (${pl(rs.length)})\n\n` + payTxt(pays(rs)) + '\n\n' + packs(gs);
 }
 function buildCsv(rs) {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  return '\ufeff' + ['Fecha;N° prenda;Descripción;Nick;Nombre;Valor;Entrega;Teléfono;Dirección;Ciudad/Región;RUT',
-    ...rs.map(r => { const c = r.c || {}; return [fdate(r.date), q(r.n), q(r.desc), q(c.nick || ''), q(c.name || r.cn), r.value, q(MODES[c.mode] || ''), q(c.phone), q(c.addr), q(c.city), q(c.rut)].join(';'); })].join('\r\n');
+  return '\ufeff' + ['Fecha;N° prenda;Descripción;Nick;Nombre;Valor;Entrega;Teléfono;Dirección;Ciudad/Región;RUT;Pagado',
+    ...rs.map(r => { const c = r.c || {}; return [fdate(r.date), q(r.n), q(r.desc), q(c.nick || ''), q(c.name || r.cn), r.value, q(MODES[c.mode] || ''), q(c.phone), q(c.addr), q(c.city), q(c.rut), isPaid(r.event, r.client) ? 'Sí' : 'No'].join(';'); })].join('\r\n');
 }
 function download(name, text, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
+const st = a => a.reduce((x, p) => x + p.tot, 0);
+function pays(rs) {
+  const m = new Map();
+  rs.forEach(r => { const k = pkey(r.event, r.client); if (!m.has(k)) m.set(k, { e: r.event, cid: r.client, cn: r.cn, date: r.date, rows: [] }); m.get(k).rows.push(r); });
+  return [...m.values()].map(p => ({ ...p, paid: S.pay[pkey(p.e, p.cid)], tot: sum(p.rows) })).sort((a, b) => a.date.localeCompare(b.date) || a.cn.localeCompare(b.cn));
+}
+function payTxt(ps) {
+  const f = l => l.map(p => `• ${p.cn} – ${fdate(p.date)} – ${money(p.tot)}`).join('\n') || '—', pe = ps.filter(p => !p.paid), pa = ps.filter(p => p.paid);
+  return `*💰 PAGOS*\n\n*Pendientes (${pe.length}) – ${money(st(pe))}*\n${f(pe)}\n\n*Pagados (${pa.length}) – ${money(st(pa))}*\n${f(pa)}`;
+}
 const wa = p => { let d = (p || '').replace(/\D/g, ''); if (d.length === 9) d = '56' + d; else if (d.length === 8) d = '569' + d; return d; };
 function vInformes() {
   const rs = rows(), gs = groups(rs);
   const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   const key = g => `${g.c?.id || '-'}|${g.rows.length}|${sum(g.rows)}`;
+  const ps = pays(rs), pe = ps.filter(p => !p.paid), pa = ps.filter(p => p.paid);
+  const prow = p => `<div class="item pr"><div class="t"><b>${esc(p.cn)}</b><small>${fdate(p.date)} · ${money(p.tot)}</small></div><button class="btn sm ${p.paid ? 'okb' : 'outl'}" data-pp="${p.e}|${p.cid}">${p.paid ? 'Pagado ✓' : 'Marcar pagado'}</button></div>`;
+  const payHtml = `<div class="card"><div class="total"><small>Pendientes (${pe.length})</small><b style="color:var(--warn)">${money(st(pe))}</b></div>${pe.map(prow).join('') || '<p class="empty">Sin pagos pendientes</p>'}</div><div class="card"><div class="total"><small>Pagados (${pa.length})</small><b style="color:var(--ok)">${money(st(pa))}</b></div>${pa.map(prow).join('') || '<p class="empty">Sin pagos registrados</p>'}</div>`;
   $('#view').innerHTML = `<h2>Informes</h2>
   <div class="card form">
     <div class="row"><label>Desde<input type="date" id="rf" value="${R.from}"></label><label>Hasta<input type="date" id="rt" value="${R.to}"></label></div>
@@ -208,10 +242,15 @@ function vInformes() {
   <div class="card total"><small>${pl(rs.length)}</small><b>${money(sum(rs))}</b></div>
   ${rs.length ? rs.map(r => `<div class="card item"><div class="t"><b>#${esc(r.n || '–')} ${esc(r.desc)}</b><small>${fdate(r.date)} · ${esc(r.cn)}</small></div><span class="val">${money(r.value)}</span></div>`).join('') : '<p class="empty">No hay ventas con estos filtros.</p>'}
   <div class="row"><button class="btn sm" id="xt">Texto .txt</button><button class="btn sm" id="xc">CSV</button><button class="btn sm ghost" id="xs">Compartir</button></div>
-  ${rs.length ? `<h2>Paquetes</h2><div class="card">${byMode(gs).map(([m, l]) => `<p><b>${MODES[m] || 'Sin definir'} (${l.length})</b><br><small style="letter-spacing:.5px">${esc(l.map(g => g.cn).join(', '))}</small></p>`).join('')}</div>
+  ${rs.length ? `<h2>Pagos</h2>${payHtml}<h2>Paquetes</h2><div class="card">${byMode(gs).map(([m, l]) => `<p><b>${MODES[m] || 'Sin definir'} (${l.length})</b><br><small style="letter-spacing:.5px">${esc(l.map(g => g.cn).join(', '))}</small></p>`).join('')}</div>
   <h2>Mensajes para clientes</h2>
-  ${gs.map((g, i) => `<div class="card msg ${S.sent[key(g)] ? 'done' : ''}"><div class="item"><div class="t"><b>${esc(g.cn)}</b><small>${pl(g.rows.length)} · ${money(sum(g.rows))}</small></div><span class="val ok">✓</span></div><div class="row"><button class="btn sm" data-cp="${i}">${S.sent[key(g)] ? 'Copiar de nuevo' : 'Copiar mensaje'}</button>${wa(g.c?.phone) ? `<a class="btn sm ghost" target="_blank" rel="noopener" href="https://wa.me/${wa(g.c.phone)}?text=${encodeURIComponent(msg(g))}">WhatsApp</a>` : ''}</div></div>`).join('')}` : ''}`;
+  ${gs.map((g, i) => `<div class="card msg ${S.sent[key(g)] ? 'done' : ''}"><div class="item"><div class="t"><b>${esc(g.cn)}</b><small>${pl(g.rows.length)} · ${money(sum(g.rows))}</small></div><span class="val ok">✓</span></div><div class="row"><button class="btn sm" data-cp="${i}">${S.sent[key(g)] ? 'Copiar de nuevo' : 'Copiar mensaje'}</button>${wa(g.c?.phone) ? `<a class="btn sm ghost" target="_blank" rel="noopener" data-wa="${i}" href="https://wa.me/${wa(g.c.phone)}">Copiar + WhatsApp</a>` : ''}</div></div>`).join('')}` : ''}`;
   [['rf', 'from'], ['rt', 'to'], ['rc', 'client'], ['rs', 'sort'], ['rd', 'dir']].forEach(([id, k]) => $('#' + id).onchange = e => { R[k] = e.target.value; vInformes(); });
+  document.querySelectorAll('[data-wa]').forEach(a => a.onclick = () => {
+    const g = gs[a.dataset.wa]; navigator.clipboard.writeText(msg(g)).catch(() => { });
+    S.sent[key(g)] = 1; save(); a.closest('.msg').classList.add('done'); toast('Mensaje copiado: pégalo en el chat');
+  });
+  document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => keepY(() => { const [e, c] = b.dataset.pp.split('|'); setPaid(e, c); vInformes(); }));
   const stamp = today();
   $('#xt').onclick = () => rs.length ? download(`clementina-informe-${stamp}.txt`, buildTxt(rs), 'text/plain;charset=utf-8') : toast('No hay datos');
   $('#xc').onclick = () => rs.length ? download(`clementina-informe-${stamp}.csv`, buildCsv(rs), 'text/csv;charset=utf-8') : toast('No hay datos');
@@ -242,6 +281,7 @@ function vAjustes() {
     <p style="color:var(--mute);font-size:14px">Variables: {nombre} {prendas} {total}</p>
     <span class="lbl">Detalle de prendas</span>${seg('d', [['count', 'Solo cantidad'], ['list', 'Listar prendas']], S.detail)}
     <button class="btn sm ghost" id="tr">Restablecer mensaje</button></div>
+  <div class="card form"><label>Historial de cliente: eventos a mostrar<input type="number" id="hi" min="1" placeholder="Todos" value="${S.hist || ''}"></label></div>
   <div class="card form"><span class="lbl">Almacenamiento local</span>
     <p>${S.sales.length} ventas · ${S.clients.length} clientes · ${S.events.length} eventos · ${kb} KB</p>
     <p style="color:var(--mute);font-size:14px">Los datos viven solo en este dispositivo. Haz respaldos con frecuencia.</p>
@@ -252,6 +292,7 @@ function vAjustes() {
     <input type="file" id="fi" accept=".json,application/json" hidden></div>`;
   const on = (a, fn) => document.querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = () => { fn(b.dataset[a]); save(); applyTheme(); vAjustes(); });
   on('t', v => S.theme = v); on('c', v => S.accent = v); on('s', v => S.show = v); on('d', v => S.detail = v);
+  $('#hi').onchange = e => { S.hist = parseInt(e.target.value) || 0; save(); toast('Guardado'); };
   $('#tp').onchange = e => { S.tpl = e.target.value; save(); toast('Mensaje guardado'); };
   $('#tr').onclick = () => { if (confirm('¿Restablecer el mensaje original?')) { S.tpl = TPL; save(); vAjustes(); } };
   $('#ex').onclick = () => download(`clementina-respaldo-${today()}.json`, JSON.stringify(S, null, 1), 'application/json');
