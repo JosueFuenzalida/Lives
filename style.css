@@ -73,3 +73,15 @@ dialog{max-height:90vh;overflow:auto}
 .btn.okb{background:var(--ok);box-shadow:none}
 .pr{padding-top:12px;margin-top:10px;border-top:1px solid var(--line)}
 .pr .btn{flex:none}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:12px 2px;font:700 15px var(--font);letter-spacing:1px;text-transform:uppercase;color:var(--mute);cursor:pointer}
+.tabs button.on{color:var(--acc);border-color:var(--acc)}
+#tb{display:grid;gap:14px}
+.chk{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);text-transform:none;letter-spacing:0;color:var(--ink);font:400 16px var(--body);cursor:pointer}
+.chk input{width:24px;height:24px;flex:none;padding:0}
+.chk .t{flex:1;min-width:0}
+.chk b{display:block;font:700 21px var(--font)}
+.pk{padding-top:10px;margin-top:10px;border-top:1px solid var(--line)}
+.pk b{display:block;font:700 20px var(--font)}
+.pk small{display:block;letter-spacing:.5px;text-transform:none;font-size:14px;margin-top:2px}
+.btn:disabled{opacity:.45}
