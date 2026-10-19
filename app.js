@@ -14,9 +14,10 @@ Cuenta: 17.540.416-3
 Una vez realizada la transferencia, envíame el comprobante para coordinar la entrega.
 
 ¡Muchísimas gracias por confiar en Clementina! 💖 Espero que disfrutes mucho tu nueva prenda. Será un gusto atenderte nuevamente.`;
-const DEF = { clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {}, pay: {}, hist: 5 };
-let S = (() => { try { return { ...DEF, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return { ...DEF }; } })();
-const save = () => localStorage.setItem(KEY, JSON.stringify(S));
+const mkDef = () => ({ clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {}, pay: {}, hist: 5, tomb: {}, tplU: 0 });
+let S = (() => { try { return { ...mkDef(), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return { ...mkDef() }; } })();
+const persist = () => localStorage.setItem(KEY, JSON.stringify(S));
+const save = () => { persist(); schedule(); };
 const $ = s => document.querySelector(s);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const money = n => '$' + Math.round(n).toLocaleString('es-CL');
@@ -37,7 +38,7 @@ let V = 'ventas', CID = '';
 const full = c => [c.name, c.nick && `[${c.nick}]`].filter(Boolean).join(' - ');
 const pkey = (e, c) => e + '|' + c;
 const isPaid = (e, c) => !!S.pay[pkey(e, c)];
-const setPaid = (e, c) => { const k = pkey(e, c); if (S.pay[k]) delete S.pay[k]; else S.pay[k] = Date.now(); save(); };
+const setPaid = (e, c) => { const k = pkey(e, c); if (S.pay[k]) { delete S.pay[k]; S.tomb['pay:' + k] = Date.now(); } else S.pay[k] = Date.now(); save(); };
 const debtOf = id => { const m = {}; S.sales.forEach(s => { if (s.client === id) m[s.event] = (m[s.event] || 0) + s.value; }); return Object.entries(m).filter(([e]) => !S.pay[pkey(e, id)]).reduce((a, [, v]) => a + v, 0); };
 const keepY = fn => { const y = scrollY; fn(); scrollTo(0, y); };
 const R = { ids: null, title: '', tab: 'resumen', rf: '', rt: '', unch: [], client: '', sort: 'date', dir: 'desc', allDebt: false };
@@ -66,8 +67,8 @@ function clientDlg(c, done, quick) {
     d => {
       const g = (id, k) => { const el = d.querySelector(id); return el ? el.value.trim() : (c?.[k] || ''); };
       const o = { name: g('#dn', 'name'), nick: g('#dk', 'nick'), phone: g('#dp', 'phone'), mode: g('#dm', 'mode'), social: g('#ds', 'social'), addr: g('#da', 'addr'), city: g('#dc', 'city'), rut: g('#dr', 'rut'), note: g('#dt', 'note') };
-      if (c) { Object.assign(c, o); S.sales.forEach(s => { if (s.client === c.id) s.cn = c.name || c.nick; }); }
-      else { c = { id: uid(), ...o }; S.clients.push(c); }
+      if (c) { Object.assign(c, o, { u: Date.now() }); S.sales.forEach(s => { if (s.client === c.id) s.cn = c.name || c.nick; }); }
+      else { c = { id: uid(), ...o, u: Date.now() }; S.clients.push(c); }
       save(); done && done(c);
     },
     d => (d.querySelector('#dn').value.trim() || d.querySelector('#dk').value.trim()) ? '' : 'Ingresa al menos un nombre o un nick.');
@@ -103,11 +104,11 @@ function vVentas(k) {
   ${e ? (sales.length ? sales.map(s => `<div class="card item"><div class="t"><b>#${esc(s.n || '–')} ${esc(s.desc)}</b><small>${esc(cdisp(s))}</small></div><span class="val">${money(s.value)}</span><button class="x" data-del="${s.id}" aria-label="Eliminar">✕</button></div>`).join('') : '<p class="empty">Aún no hay ventas en este evento.</p>')
     : '<p class="empty">Inicia un evento para ingresar ventas.</p>'}`;
   const evd = $('#evd');
-  evd.onchange = () => { const ev = cur(); if (ev && evd.value) { ev.date = evd.value; save(); toast('Fecha actualizada'); } };
-  $('#evn').onchange = () => { const ev = cur(); if (ev) { ev.name = $('#evn').value.trim(); save(); toast('Nombre guardado'); } };
+  evd.onchange = () => { const ev = cur(); if (ev && evd.value) { ev.date = evd.value; ev.u = Date.now(); save(); toast('Fecha actualizada'); } };
+  $('#evn').onchange = () => { const ev = cur(); if (ev) { ev.name = $('#evn').value.trim(); ev.u = Date.now(); save(); toast('Nombre guardado'); } };
   $('#evb').onclick = () => {
-    if (e) { if (confirm('¿Cerrar el evento? Se guardará en informes con la fecha ' + fdate(e.date) + '.')) { e.end = Date.now(); save(); toast('Evento cerrado'); vVentas(); } }
-    else { if (!evd.value) return toast('Elige una fecha'); S.events.push({ id: uid(), name: $('#evn').value.trim(), date: evd.value, start: Date.now() }); save(); toast('Evento iniciado'); vVentas(); }
+    if (e) { if (confirm('¿Cerrar el evento? Se guardará en informes con la fecha ' + fdate(e.date) + '.')) { e.end = Date.now(); e.u = Date.now(); save(); toast('Evento cerrado'); vVentas(); if (autoOn()) sync(true); } }
+    else { if (!evd.value) return toast('Elige una fecha'); S.events.push({ id: uid(), name: $('#evn').value.trim(), date: evd.value, start: Date.now(), u: Date.now() }); save(); toast('Evento iniciado'); vVentas(); }
   };
   if (!e) return;
   const f = () => ({ n: $('#n').value, d: $('#d').value, v: $('#v').value, c: $('#c').value });
@@ -119,11 +120,11 @@ function vVentas(k) {
     const value = parseFloat(String($('#v').value).replace(/[^\d.]/g, '')), client = $('#c').value, c = cl(client);
     if (!client) return toast('Selecciona un cliente');
     if (!(value > 0)) { toast('Ingresa un valor'); return $('#v').focus(); }
-    S.sales.push({ id: uid(), event: e.id, n: $('#n').value.trim(), desc: $('#d').value.trim(), value, client, cn: c.name || c.nick, t: Date.now() });
+    S.sales.push({ id: uid(), event: e.id, n: $('#n').value.trim(), desc: $('#d').value.trim(), value, client, cn: c.name || c.nick, t: Date.now(), u: Date.now() });
     save(); toast('Venta ingresada'); vVentas({ n: '', d: '', v: '', c: client }); $('#n').focus();
   };
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    if (confirm('¿Eliminar esta venta?')) { S.sales = S.sales.filter(s => s.id !== b.dataset.del); save(); vVentas(f()); }
+    if (confirm('¿Eliminar esta venta?')) { S.sales = S.sales.filter(s => s.id !== b.dataset.del); S.tomb['sale:' + b.dataset.del] = Date.now(); save(); vVentas(f()); }
   });
 }
 
@@ -137,7 +138,7 @@ function vClientes() {
     ev.stopPropagation();
     const c = cl(b.dataset.x);
     if (S.sales.some(s => s.client === c.id)) return alert('No se puede eliminar: ' + full(c) + ' tiene ventas registradas.');
-    if (confirm(`¿Eliminar a ${full(c)}?`)) { S.clients = S.clients.filter(x => x !== c); save(); vClientes(); }
+    if (confirm(`¿Eliminar a ${full(c)}?`)) { S.clients = S.clients.filter(x => x !== c); S.tomb['client:' + c.id] = Date.now(); save(); vClientes(); }
   });
 }
 function vCliente() {
@@ -328,6 +329,7 @@ function tabMensajes({ gs, key }) {
 
 /* ---------- ajustes ---------- */
 function vAjustes() {
+  const cf = getCfg();
   const colors = ['#2468d6', '#e8710a', '#1fa35c', '#d6336c', '#7048e8'];
   const kb = (new Blob([localStorage.getItem(KEY) || '']).size / 1024).toFixed(1);
   const seg = (a, items, cur) => `<div class="seg">${items.map(([k, l]) => `<button class="btn sm ${cur === k ? '' : 'ghost'}" data-${a}="${k}">${l}</button>`).join('')}</div>`;
@@ -342,6 +344,13 @@ function vAjustes() {
     <p style="color:var(--mute);font-size:14px">Variables: {nombre} {prendas} {total}</p>
     <span class="lbl">Detalle de prendas</span>${seg('d', [['count', 'Solo cantidad'], ['list', 'Listar prendas']], S.detail)}
     <button class="btn sm ghost" id="tr">Restablecer mensaje</button></div>
+  <div class="card form"><span class="lbl">Sincronización (GitHub)</span>
+    <label>Repositorio de datos<input id="sr" autocapitalize="none" autocomplete="off" placeholder="usuario/clementina-datos" value="${esc(cf.repo)}"></label>
+    <label>Token de acceso<input id="stk" type="password" autocomplete="off" placeholder="${cf.token ? '•••••• (guardado)' : 'github_pat_…'}"></label>
+    <label class="chk" style="border:0;padding:0"><input type="checkbox" id="sa" ${cf.auto !== false ? 'checked' : ''}><div class="t"><b>Sincronizar automáticamente</b></div></label>
+    <p style="color:var(--mute);font-size:14px">${cf.last ? 'Última sincronización: ' + fdate(ymd(cf.last)) + ' ' + new Date(cf.last).toTimeString().slice(0, 5) : 'Aún no se ha sincronizado.'}</p>
+    <button class="btn sm" id="ss">Guardar y sincronizar</button>
+    ${cf.repo ? '<button class="btn sm ghost" id="sd">Desconectar este dispositivo</button>' : ''}</div>
   <div class="card form"><label>Historial de cliente: eventos a mostrar<input type="number" id="hi" min="1" placeholder="Todos" value="${S.hist || ''}"></label></div>
   <div class="card form"><span class="lbl">Almacenamiento local</span>
     <p>${S.sales.length} ventas · ${S.clients.length} clientes · ${S.events.length} eventos · ${kb} KB</p>
@@ -352,24 +361,125 @@ function vAjustes() {
     <button class="btn sm ghost" id="im">Importar respaldo</button>
     <input type="file" id="fi" accept=".json,application/json" hidden></div>`;
   const on = (a, fn) => document.querySelectorAll(`[data-${a}]`).forEach(b => b.onclick = () => { fn(b.dataset[a]); save(); applyTheme(); vAjustes(); });
-  on('t', v => S.theme = v); on('c', v => S.accent = v); on('s', v => S.show = v); on('d', v => S.detail = v);
+  on('t', v => S.theme = v); on('c', v => S.accent = v); on('s', v => S.show = v); on('d', v => { S.detail = v; S.tplU = Date.now(); });
+  $('#ss').onclick = async () => {
+    const repo = $('#sr').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, ''), token = $('#stk').value.trim() || cf.token;
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return toast('Escribe el repositorio como usuario/nombre');
+    if (!token) return toast('Pega el token de acceso');
+    setCfg({ ...cf, repo, token, auto: $('#sa').checked });
+    await sync(false); vAjustes();
+  };
+  if ($('#sd')) $('#sd').onclick = () => { if (confirm('¿Desconectar? Los datos de este dispositivo no se borran.')) { localStorage.removeItem(SK); vAjustes(); } };
   $('#hi').onchange = e => { S.hist = parseInt(e.target.value) || 0; save(); toast('Guardado'); };
-  $('#tp').onchange = e => { S.tpl = e.target.value; save(); toast('Mensaje guardado'); };
-  $('#tr').onclick = () => { if (confirm('¿Restablecer el mensaje original?')) { S.tpl = TPL; save(); vAjustes(); } };
+  $('#tp').onchange = e => { S.tpl = e.target.value; S.tplU = Date.now(); save(); toast('Mensaje guardado'); };
+  $('#tr').onclick = () => { if (confirm('¿Restablecer el mensaje original?')) { S.tpl = TPL; S.tplU = Date.now(); save(); vAjustes(); } };
   $('#ex').onclick = () => download(`clementina-respaldo-${today()}.json`, JSON.stringify(S, null, 1), 'application/json');
   $('#im').onclick = () => $('#fi').click();
   $('#fi').onchange = async e => {
     try {
       const d = JSON.parse(await e.target.files[0].text());
       if (!Array.isArray(d.sales) || !Array.isArray(d.clients) || !Array.isArray(d.events)) throw 0;
-      if (confirm('Esto reemplazará los datos actuales. ¿Continuar?')) { S = { ...DEF, ...d }; save(); applyTheme(); toast('Datos importados'); vAjustes(); }
+      if (confirm('Esto reemplazará los datos actuales. ¿Continuar?')) { S = { ...mkDef(), ...d }; save(); applyTheme(); toast('Datos importados'); vAjustes(); }
     } catch (x) { toast('Archivo no válido'); }
   };
-  $('#wipe').onclick = () => { if (confirm('¿Borrar TODOS los datos? No se puede deshacer.')) { S = { ...DEF }; save(); applyTheme(); toast('Datos borrados'); vAjustes(); } };
+  $('#wipe').onclick = () => { if (confirm('¿Borrar TODOS los datos de este dispositivo? Si la sincronización está activa, volverán a bajarse desde GitHub.')) { S = { ...mkDef() }; save(); applyTheme(); toast('Datos borrados'); vAjustes(); } };
 }
+
+/* ---------- sincronización con GitHub ---------- */
+const SK = 'clementina.sync', GH = 'https://api.github.com/repos/';
+const getCfg = () => { try { return JSON.parse(localStorage.getItem(SK) || '{}'); } catch (e) { return {}; } };
+const setCfg = c => localStorage.setItem(SK, JSON.stringify(c));
+const autoOn = () => { const c = getCfg(); return !!(c.repo && c.token && c.auto !== false); };
+const hdr = c => ({ Authorization: 'Bearer ' + c.token, Accept: 'application/vnd.github+json' });
+const b64e = s => { const b = new TextEncoder().encode(s); let o = ''; for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(o); };
+const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0)));
+const byId = (a, b) => (a.id < b.id ? -1 : 1);
+const sortKeys = o => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
+function core() {
+  return { v: 1, clients: [...S.clients].sort(byId), events: [...S.events].sort(byId), sales: [...S.sales].sort(byId), pay: sortKeys(S.pay), tomb: sortKeys(S.tomb), tpl: S.tpl, detail: S.detail, tplU: S.tplU || 0 };
+}
+/* mezcla los datos remotos con los locales (gana lo más reciente; lo borrado queda borrado) */
+function merge(r) {
+  if (!r) return;
+  S.tomb = S.tomb || {}; S.pay = S.pay || {};
+  Object.entries(r.tomb || {}).forEach(([k, t]) => { if (!(S.tomb[k] >= t)) S.tomb[k] = t; });
+  const mergeList = (name, type) => {
+    const m = new Map(S[name].map(x => [x.id, x]));
+    (r[name] || []).forEach(x => {
+      const l = m.get(x.id);
+      if (!l || (x.u || 0) > (l.u || 0)) {
+        const w = { ...x };
+        if (name === 'events') { const en = Math.max(x.end || 0, l?.end || 0); if (en) w.end = en; }
+        m.set(x.id, w);
+      } else if (name === 'events' && x.end && !l.end) l.end = x.end;
+    });
+    S[name] = [...m.values()].filter(x => !(S.tomb[type + ':' + x.id] >= (x.u || 0)));
+  };
+  mergeList('clients', 'client'); mergeList('events', 'event'); mergeList('sales', 'sale');
+  new Set([...Object.keys(S.pay), ...Object.keys(r.pay || {})]).forEach(k => {
+    const p = Math.max(S.pay[k] || 0, (r.pay || {})[k] || 0), t = S.tomb['pay:' + k] || 0;
+    if (p && p > t) S.pay[k] = p; else delete S.pay[k];
+  });
+  if ((r.tplU || 0) > (S.tplU || 0)) { S.tpl = r.tpl; S.detail = r.detail; S.tplU = r.tplU; }
+}
+async function ghGet(c) {
+  const u = GH + c.repo + '/contents/datos.json';
+  const r = await fetch(u, { headers: hdr(c), cache: 'no-store' });
+  if (r.status === 404) {
+    const rr = await fetch(GH + c.repo, { headers: hdr(c), cache: 'no-store' });
+    if (!rr.ok) throw { status: rr.status };
+    return { sha: null, data: null };
+  }
+  if (!r.ok) throw { status: r.status };
+  const j = await r.json();
+  let txt;
+  if (j.encoding === 'base64' && j.content) txt = b64d(j.content);
+  else txt = await (await fetch(u, { headers: { ...hdr(c), Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' })).text();
+  return { sha: j.sha, data: JSON.parse(txt) };
+}
+async function ghPut(c, sha, obj) {
+  const r = await fetch(GH + c.repo + '/contents/datos.json', { method: 'PUT', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync ' + new Date().toISOString(), content: b64e(JSON.stringify(obj)), ...(sha ? { sha } : {}) }) });
+  if (!r.ok) throw { status: r.status };
+}
+const errMsg = e => e.status === 401 ? 'Token inválido o vencido' : e.status === 403 ? 'Sin permiso: revisa Contents → Read and write' : e.status === 404 ? 'No se encuentra el repositorio (revisa usuario/nombre y el acceso del token)' : e.status ? 'Error de GitHub ' + e.status : 'Sin conexión';
+let syncing = false, timer = 0;
+function schedule() { if (!autoOn()) return; clearTimeout(timer); timer = setTimeout(() => sync(true), 60000); }
+function afterSync(changed) {
+  if (!changed || $('#dlg').open || V === 'ajustes') return;
+  const y = scrollY;
+  if (V === 'ventas' && $('#n')) vVentas({ n: $('#n').value, d: $('#d').value, v: $('#v').value, c: $('#c').value }); else render();
+  window.scrollTo(0, y);
+}
+async function sync(silent) {
+  const c = getCfg();
+  if (!c.repo || !c.token) return silent ? 0 : toast('Configura la sincronización en Ajustes');
+  if (syncing) return;
+  syncing = true; clearTimeout(timer);
+  if (!silent) toast('Sincronizando…');
+  try {
+    let changed = false;
+    for (let i = 0; i < 3; i++) {
+      const { sha, data } = await ghGet(c);
+      const before = JSON.stringify(core());
+      merge(data);
+      changed = changed || JSON.stringify(core()) !== before;
+      persist();
+      const body = core();
+      if (data && JSON.stringify({ ...data, at: undefined }) === JSON.stringify(body)) break;
+      try { await ghPut(c, sha, { ...body, at: Date.now() }); break; }
+      catch (e) { if ((e.status === 409 || e.status === 422) && i < 2) continue; throw e; }
+    }
+    setCfg({ ...getCfg(), last: Date.now() });
+    if (!silent) toast('Sincronizado ✓');
+    afterSync(changed);
+  } catch (e) { if (!silent || e.status === 401 || e.status === 403) toast(errMsg(e)); }
+  finally { syncing = false; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && autoOn() && Date.now() - (getCfg().last || 0) > 60000) sync(true); });
 
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => go(b.dataset.v));
 $('#cfg').onclick = () => go('ajustes');
 applyTheme();
 render();
+if (autoOn()) sync(true);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
