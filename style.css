@@ -85,3 +85,4 @@ dialog{max-height:90vh;overflow:auto}
 .pk b{display:block;font:700 20px var(--font)}
 .pk small{display:block;letter-spacing:.5px;text-transform:none;font-size:14px;margin-top:2px}
 .btn:disabled{opacity:.45}
+.tag{font:700 14px var(--font);letter-spacing:1.5px;color:#fff;background:var(--bad);border-radius:8px;padding:3px 9px;flex:none}

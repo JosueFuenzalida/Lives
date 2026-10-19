@@ -38,6 +38,7 @@ const full = c => [c.name, c.nick && `[${c.nick}]`].filter(Boolean).join(' - ');
 const pkey = (e, c) => e + '|' + c;
 const isPaid = (e, c) => !!S.pay[pkey(e, c)];
 const setPaid = (e, c) => { const k = pkey(e, c); if (S.pay[k]) delete S.pay[k]; else S.pay[k] = Date.now(); save(); };
+const debtOf = id => { const m = {}; S.sales.forEach(s => { if (s.client === id) m[s.event] = (m[s.event] || 0) + s.value; }); return Object.entries(m).filter(([e]) => !S.pay[pkey(e, id)]).reduce((a, [, v]) => a + v, 0); };
 const keepY = fn => { const y = scrollY; fn(); scrollTo(0, y); };
 const R = { ids: null, title: '', tab: 'resumen', rf: '', rt: '', unch: [], client: '', sort: 'date', dir: 'desc', allDebt: false };
 
@@ -128,7 +129,7 @@ function vVentas(k) {
 
 /* ---------- clientes ---------- */
 function vClientes() {
-  $('#view').innerHTML = `<h2>Clientes</h2>` + (S.clients.length ? sorted().map(c => `<div class="card item tap" data-o="${c.id}"><div class="t"><b>${esc(full(c))}</b></div><button class="x" data-e="${c.id}" aria-label="Editar">✎</button><button class="x" data-x="${c.id}" aria-label="Eliminar">✕</button></div>`).join('') : '<p class="empty">Aún no hay clientes. Toca + para agregar uno.</p>') + `<button class="fab" id="fab" aria-label="Agregar cliente">+</button>`;
+  $('#view').innerHTML = `<h2>Clientes</h2>` + (S.clients.length ? sorted().map(c => `<div class="card item tap" data-o="${c.id}"><div class="t"><b>${esc(full(c))}</b></div>${debtOf(c.id) > 0 ? '<span class="tag">DEUDA</span>' : ''}<button class="x" data-e="${c.id}" aria-label="Editar">✎</button><button class="x" data-x="${c.id}" aria-label="Eliminar">✕</button></div>`).join('') : '<p class="empty">Aún no hay clientes. Toca + para agregar uno.</p>') + `<button class="fab" id="fab" aria-label="Agregar cliente">+</button>`;
   $('#fab').onclick = () => clientDlg(null, vClientes);
   document.querySelectorAll('[data-o]').forEach(el => el.onclick = () => { CID = el.dataset.o; go('cliente'); });
   document.querySelectorAll('[data-e]').forEach(b => b.onclick = ev => { ev.stopPropagation(); clientDlg(cl(b.dataset.e), vClientes); });
@@ -196,31 +197,51 @@ function pk(g, m) {
   if (c.note) L.push(`Nota: ${c.note}`);
   return { head: `${c.name || c.nick || g.cn}${c.name && c.nick ? ` (${c.nick})` : ''} – ${pl(g.rows.length)} – ${money(sum(g.rows))}`, lines: L };
 }
-function packs(gs) {
-  let p = '*📦 PAQUETES A ARMAR*';
-  byMode(gs).forEach(([m, l]) => { p += `\n\n*${MODES[m] || 'Sin definir'} (${l.length})*`; l.forEach(g => { const x = pk(g, m); p += `\n• ${x.head}` + x.lines.map(t => `\n  ${t}`).join(''); }); });
-  return p;
-}
 function pays(rs) {
   const m = new Map();
   rs.forEach(r => { const k = pkey(r.event, r.client); if (!m.has(k)) m.set(k, { e: r.event, cid: r.client, cn: r.cn, date: r.date, name: r.ename, rows: [] }); m.get(k).rows.push(r); });
   return [...m.values()].map(p => ({ ...p, paid: S.pay[pkey(p.e, p.cid)], tot: sum(p.rows) })).sort((a, b) => a.date.localeCompare(b.date) || a.cn.localeCompare(b.cn));
 }
 const ptag = p => [p.name, fdate(p.date)].filter(Boolean).join(' · ');
-function payTxt(ps) {
-  const f = l => l.map(p => `• ${p.cn} – ${ptag(p)} – ${money(p.tot)}`).join('\n') || '—', pe = ps.filter(p => !p.paid), pa = ps.filter(p => p.paid);
-  return `*💰 PAGOS*\n\n*Pendientes (${pe.length}) – ${money(st(pe))}*\n${f(pe)}\n\n*Pagados (${pa.length}) – ${money(st(pa))}*\n${f(pa)}`;
-}
+const SEP = '='.repeat(34), SUB = '-'.repeat(34);
 function buildTxt(rs) {
-  const line = r => `• #${r.n || '–'} ${r.desc || 'Prenda'} – ${r.cn} – ${money(r.value)}`, gs = groups(rs);
-  const ds = [...new Set(R.ids.map(id => (S.events.find(e => e.id === id) || {}).date).filter(Boolean))].sort();
-  let o = `*CLEMENTINA · ${R.title}*\nPeríodo: ${fdate(ds[0])}${ds.length > 1 ? ' al ' + fdate(ds[ds.length - 1]) : ''}\nCliente: ${R.client && cl(R.client) ? dname(cl(R.client)) : 'Todos'}\n\n`;
-  if (R.sort === 'date') {
-    const g = {}; rs.forEach(r => (g[r.event] = g[r.event] || []).push(r));
-    Object.values(g).forEach(l => { o += `*${[l[0].ename, fdate(l[0].date)].filter(Boolean).join(' · ')}*\n${l.map(line).join('\n')}\nSubtotal: ${money(sum(l))}\n\n`; });
-  } else o += rs.map(r => `${fdate(r.date)} ${line(r)}`).join('\n') + '\n\n';
-  o += '*Total por cliente*\n' + [...gs].sort((a, b) => sum(b.rows) - sum(a.rows)).map(g => `${g.cn}: ${money(sum(g.rows))}`).join('\n');
-  return o + `\n\n*TOTAL: ${money(sum(rs))}* (${pl(rs.length)})\n\n` + payTxt(pays(rs)) + '\n\n' + packs(gs);
+  const gs = groups(rs), multi = R.ids.length > 1;
+  const evs = R.ids.map(id => S.events.find(e => e.id === id)).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
+  const now = new Date(), emit = `${fdate(ymd(now))} ${now.toTimeString().slice(0, 5)}`;
+  const OL = { date: ['Orden de emisión', 'más antiguo primero', 'más reciente primero'], client: ['Cliente', 'A → Z', 'Z → A'], value: ['Valor', 'menor a mayor', 'mayor a menor'] }[R.sort];
+  const asc = R.dir === 'asc';
+  const sect = t => `${SEP}\n${t}\n${SEP}`;
+  const tag = r => `${fdate(r.date)}${r.ename ? ' · ' + r.ename : ''}`;
+  const first = (arr, key) => { const m = new Map(); arr.forEach(r => { const k = key(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }); return [...m.values()]; };
+
+  const head = [sect('CLEMENTINA · INFORME DE VENTAS'),
+    `Informe: ${R.title}`,
+    `Período: ${fdate(evs[0]?.date)}${evs.length > 1 ? ' al ' + fdate(evs[evs.length - 1].date) : ''}`,
+    `Lives que abarca: ${evs.length}`, ...evs.map(e => `  • ${evLabel(e)}`),
+    `Clientes: ${R.client && cl(R.client) ? full(cl(R.client)) : `Todos (${gs.length})`}`,
+    `Emitido: ${emit}`].join('\n');
+
+  let body;
+  if (R.sort === 'client') {
+    body = first(rs, r => r.client || '-').map(l => `▸ ${l[0].cn.toUpperCase()}\n${[...l].sort((a, b) => a.t - b.t).map(r => `  #${r.n || '–'} ${r.desc || 'Prenda'} – ${money(r.value)}${multi ? ` (${tag(r)})` : ''}`).join('\n')}\n  Subtotal: ${money(sum(l))} · ${pl(l.length)}`).join('\n\n');
+  } else if (R.sort === 'date') {
+    body = first(rs, r => r.event).map(l => `▸ ${[l[0].ename || 'Live', fdate(l[0].date)].join(' · ')}\n${l.map(r => `  #${r.n || '–'} ${r.desc || 'Prenda'} – ${r.cn} – ${money(r.value)}`).join('\n')}\n  Subtotal: ${money(sum(l))} · ${pl(l.length)}`).join('\n\n');
+  } else {
+    body = rs.map(r => `  #${r.n || '–'} ${r.desc || 'Prenda'} – ${r.cn} – ${money(r.value)}${multi ? ` (${tag(r)})` : ''}`).join('\n');
+  }
+  let ventas = [sect('VENTAS'), `Orden: ${OL[0]} (${asc ? OL[1] : OL[2]})`, '', body || '(sin ventas)', '', SUB, `TOTAL VENTAS: ${money(sum(rs))} · ${pl(rs.length)}`];
+  if (R.sort !== 'client') ventas.push('', 'Total por cliente:', ...[...gs].sort((a, b) => sum(b.rows) - sum(a.rows)).map(g => `  ${g.cn}: ${money(sum(g.rows))}`));
+
+  const ps = pays(rs), pa = ps.filter(p => p.paid), pe = ps.filter(p => !p.paid);
+  const lst = (l, paid) => l.length ? l.map(p => `  • ${p.cn} – ${ptag(p)} – ${money(p.tot)}${paid ? ` (pagado el ${fdate(ymd(p.paid))})` : ''}`).join('\n') : '  (ninguno)';
+  const pagos = [sect('ESTADO DE PAGOS'), `Estado al momento de emitir: ${emit}`, '',
+    `▸ PAGADOS (${pa.length}) – ${money(st(pa))}`, lst(pa, true), '',
+    `▸ PENDIENTES (${pe.length}) – ${money(st(pe))}`, lst(pe, false)].join('\n');
+
+  const ent = byMode(gs).map(([m, l]) => `▸ ${(MODES[m] || 'Sin definir').toUpperCase()} (${l.length})\n${SUB}\n` + l.map(g => { const x = pk(g, m); return `${x.head}\n` + x.lines.map(t => `  ${t}`).join('\n'); }).join('\n\n')).join('\n\n');
+  const entregas = [sect('ENTREGAS'), `Paquetes a armar: ${gs.length}`, '', ent || '(sin paquetes)'].join('\n');
+
+  return [head, ventas.join('\n'), pagos, entregas].join('\n\n') + '\n';
 }
 function buildCsv(rs) {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
