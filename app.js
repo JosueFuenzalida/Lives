@@ -473,7 +473,7 @@ async function ghGet(c, f) {
   return { sha: j.sha, data: JSON.parse(txt) };
 }
 async function ghPut(c, f, sha, obj) {
-  const r = await fetch(GH + c.repo + '/contents/' + f + '.json', { method: 'PUT', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync ' + f + ' ' + new Date().toISOString(), content: b64e(JSON.stringify(obj)), ...(sha ? { sha } : {}) }) });
+  const r = await fetch(GH + c.repo + '/contents/' + f + '.json', { method: 'PUT', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync ' + f + ' ' + new Date().toISOString(), content: b64e(JSON.stringify(obj, null, 2) + '\n'), ...(sha ? { sha } : {}) }) });
   if (!r.ok) throw { status: r.status };
 }
 async function ghDel(c, f, sha) {
