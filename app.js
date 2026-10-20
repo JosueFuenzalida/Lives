@@ -14,7 +14,7 @@ Cuenta: 17.540.416-3
 Una vez realizada la transferencia, envíame el comprobante para coordinar la entrega.
 
 ¡Muchísimas gracias por confiar en Clementina! 💖 Espero que disfrutes mucho tu nueva prenda. Será un gusto atenderte nuevamente.`;
-const mkDef = () => ({ clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {}, pay: {}, hist: 5, tomb: {}, tplU: 0 });
+const mkDef = () => ({ clients: [], events: [], sales: [], theme: 'auto', accent: '#2468d6', show: 'nick', detail: 'count', tpl: TPL, sent: {}, pay: {}, hist: 5, tomb: {}, tplU: 0, ship: {}, resetAt: 0 });
 let S = (() => { try { return { ...mkDef(), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch (e) { return { ...mkDef() }; } })();
 const persist = () => localStorage.setItem(KEY, JSON.stringify(S));
 const save = () => { persist(); schedule(); };
@@ -29,10 +29,12 @@ const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('
 const cur = () => S.events.find(e => !e.end);
 const cl = id => S.clients.find(c => c.id === id);
 const pl = n => `${n} prenda${n === 1 ? '' : 's'}`;
-const MODES = { region: 'Envío a regiones', domicilio: 'Despacho a domicilio', punto: 'Punto de retiro', retiro: 'Retiro' };
+const MODES = { region: 'Envío a regiones', domicilio: 'Despacho a domicilio', punto: 'Punto de Entrega', retiro: 'Retira Aquí' };
 /* Nick o nombre según preferencia; con * si falta el dato elegido */
 const dname = c => { const n = (c.name || '').trim(), k = (c.nick || '').trim(); return S.show === 'nick' ? (k || n + '*') : (n || k + '*'); };
 const cdisp = s => { const c = cl(s.client); return c ? dname(c) : (s.cn || 'Sin cliente'); };
+/* Ventas: ambos datos a la vista; el elegido (nick/nombre) va primero y ordena */
+const dlabel = c => { const n = (c.name || '').trim(), k = (c.nick || '').trim(), [a, b] = S.show === 'nick' ? [k, n] : [n, k]; return a ? (b ? `${a} [${b}]` : a) : `${b}*`; };
 const sorted = () => [...S.clients].sort((a, b) => dname(a).localeCompare(dname(b)));
 let V = 'ventas', CID = '';
 const full = c => [c.name, c.nick && `[${c.nick}]`].filter(Boolean).join(' - ');
@@ -61,7 +63,7 @@ function clientDlg(c, done, quick) {
   const v = k => esc(c?.[k]);
   const f = (id, l, k, x = '') => `<label>${l}<input id="${id}" value="${v(k)}" ${x}></label>`;
   const more = `<label>Entrega<select id="dm"><option value="">Sin definir</option>${Object.entries(MODES).map(([k, l]) => `<option value="${k}" ${c?.mode === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`
-    + f('ds', 'Red social / usuario', 'social', 'placeholder="TikTok @usuario"') + f('da', 'Dirección o punto de retiro', 'addr')
+    + f('ds', 'Red social / usuario', 'social', 'placeholder="TikTok @usuario"') + f('da', 'Dirección o punto de entrega', 'addr')
     + f('dc', 'Comuna / ciudad / región', 'city') + f('dr', 'RUT (para envíos)', 'rut') + f('dt', 'Notas', 'note');
   dlg(c ? 'Editar cliente' : 'Nuevo cliente', f('dn', 'Nombre', 'name') + f('dk', 'Nick', 'nick') + f('dp', 'Número', 'phone', 'inputmode="tel"') + (quick ? '' : more),
     d => {
@@ -85,7 +87,7 @@ function render() {
 function vVentas(k) {
   const e = cur(), sales = e ? S.sales.filter(s => s.event === e.id).sort((a, b) => b.t - a.t) : [];
   const total = sales.reduce((a, s) => a + s.value, 0);
-  const opts = '<option value="" disabled selected>Selecciona cliente</option>' + sorted().map(c => `<option value="${c.id}">${esc(dname(c))}</option>`).join('');
+  const opts = '<option value="" disabled selected>Selecciona cliente</option>' + sorted().map(c => `<option value="${c.id}">${esc(dlabel(c))}</option>`).join('');
   $('#view').innerHTML = `
   <div class="card ev ${e ? 'on' : ''}">
     <div><small>${e ? 'Evento abierto' : 'Sin evento abierto'}</small>
@@ -180,7 +182,10 @@ function groups(rs) {
   rs.forEach(r => { const k = r.client || '-'; if (!g.has(k)) g.set(k, { c: r.c, cn: r.cn, rows: [] }); g.get(k).rows.push(r); });
   return [...g.values()].sort((a, b) => a.cn.localeCompare(b.cn));
 }
-const byMode = gs => [...Object.keys(MODES), ''].map(m => [m, gs.filter(g => (g.c?.mode || '') === m)]).filter(x => x[1].length);
+const ovOf = g => { for (const r of [...g.rows].sort((a, b) => b.date.localeCompare(a.date))) { const o = S.ship[pkey(r.event, r.client)]; if (o && o.m) return o.m; } return ''; };
+const modeFor = g => ovOf(g) || g.c?.mode || '';
+const modeForRow = r => (S.ship[pkey(r.event, r.client)] || {}).m || r.c?.mode || '';
+const byMode = gs => [...Object.keys(MODES), ''].map(m => [m, gs.filter(g => modeFor(g) === m)]).filter(x => x[1].length);
 function msg(g) {
   const c = g.c || {}, n = g.rows.length;
   const pr = S.detail === 'list' ? g.rows.map(r => `* #${r.n || '–'} ${r.desc || 'Prenda'} – ${money(r.value)}`).join('\n') : `* ${pl(n)}`;
@@ -191,7 +196,7 @@ function pk(g, m) {
   const c = g.c || {}, loc = [c.addr, c.city].filter(Boolean).join(', '), L = [`N°: ${g.rows.map(r => '#' + (r.n || '–')).join(', ')}`];
   if (c.phone) L.push(`Tel: ${c.phone}`);
   if (m === 'region' && c.rut) L.push(`RUT: ${c.rut}`);
-  if (m !== 'retiro' && loc) L.push(`${m === 'punto' ? 'Punto' : 'Dir'}: ${loc}`);
+  if (m !== 'retiro' && loc) L.push(`${m === 'punto' ? 'Punto de entrega' : 'Dir'}: ${loc}`);
   if ((m === 'region' || m === 'domicilio') && !c.addr) L.push('⚠️ Falta dirección');
   if (m === '') L.push('⚠️ Falta definir tipo de entrega');
   if (c.social) L.push(`Red: ${c.social}`);
@@ -247,7 +252,7 @@ function buildTxt(rs) {
 function buildCsv(rs) {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   return '\ufeff' + ['Fecha;Live;N° prenda;Descripción;Nick;Nombre;Valor;Entrega;Teléfono;Dirección;Ciudad/Región;RUT;Pagado',
-    ...rs.map(r => { const c = r.c || {}; return [fdate(r.date), q(r.ename), q(r.n), q(r.desc), q(c.nick || ''), q(c.name || r.cn), r.value, q(MODES[c.mode] || ''), q(c.phone), q(c.addr), q(c.city), q(c.rut), isPaid(r.event, r.client) ? 'Sí' : 'No'].join(';'); })].join('\r\n');
+    ...rs.map(r => { const c = r.c || {}; return [fdate(r.date), q(r.ename), q(r.n), q(r.desc), q(c.nick || ''), q(c.name || r.cn), r.value, q(MODES[modeForRow(r)] || ''), q(c.phone), q(c.addr), q(c.city), q(c.rut), isPaid(r.event, r.client) ? 'Sí' : 'No'].join(';'); })].join('\r\n');
 }
 function download(name, text, type) {
   const a = document.createElement('a');
@@ -318,7 +323,14 @@ function tabPagos({ pe, pa }) {
   document.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => keepY(() => { const [e, c] = b.dataset.pp.split('|'); setPaid(e, c); vReporte(); }));
 }
 function tabPaquetes({ gs }) {
-  $('#tb').innerHTML = gs.length ? byMode(gs).map(([m, l]) => `<div class="card"><div class="total"><small>${MODES[m] || 'Sin definir'}</small><b>${l.length}</b></div>${l.map(g => { const x = pk(g, m); return `<div class="pk"><b>${esc(x.head)}</b>${x.lines.map(t => `<small>${esc(t)}</small>`).join('')}</div>`; }).join('')}</div>`).join('') : '<p class="empty">Sin ventas.</p>';
+  gs.forEach((g, i) => g.i = i);
+  const sel = g => { const o = ovOf(g); return `<label>Método de entrega<select data-sm="${g.i}">${[['', 'Del cliente: ' + (MODES[g.c?.mode] || 'sin definir')], ...Object.entries(MODES)].map(([k, l]) => `<option value="${k}" ${o === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`; };
+  $('#tb').innerHTML = gs.length ? byMode(gs).map(([m, l]) => `<div class="card"><div class="total"><small>${MODES[m] || 'Sin definir'}</small><b>${l.length}</b></div>${l.map(g => { const x = pk(g, m); return `<div class="pk"><b>${esc(x.head)}</b>${x.lines.map(t => `<small>${esc(t)}</small>`).join('')}${sel(g)}</div>`; }).join('')}</div>`).join('') : '<p class="empty">Sin ventas.</p>';
+  document.querySelectorAll('[data-sm]').forEach(el => el.onchange = () => {
+    const g = gs[el.dataset.sm], u = Date.now();
+    [...new Set(g.rows.map(r => pkey(r.event, r.client)))].forEach(k => { S.ship[k] = { m: el.value, u }; });
+    save(); keepY(vReporte);
+  });
 }
 function tabMensajes({ gs, key }) {
   $('#tb').innerHTML = gs.length ? gs.map((g, i) => `<div class="card msg ${S.sent[key(g)] ? 'done' : ''}"><div class="item"><div class="t"><b>${esc(g.cn)}</b><small>${pl(g.rows.length)} · ${money(sum(g.rows))}</small></div><span class="val ok">✓</span></div><div class="row"><button class="btn sm" data-cp="${i}">Copiar mensaje</button>${wa(g.c?.phone) ? `<a class="btn sm ghost" target="_blank" rel="noopener" data-wa="${i}" href="https://wa.me/${wa(g.c.phone)}?text=${encodeURIComponent(msg(g))}">WhatsApp</a>` : ''}</div></div>`).join('') : '<p class="empty">Sin ventas.</p>';
@@ -355,6 +367,7 @@ function vAjustes() {
   <div class="card form"><span class="lbl">Almacenamiento local</span>
     <p>${S.sales.length} ventas · ${S.clients.length} clientes · ${S.events.length} eventos · ${kb} KB</p>
     <p style="color:var(--mute);font-size:14px">Los datos viven solo en este dispositivo. Haz respaldos con frecuencia.</p>
+    <button class="btn sm danger" id="rst">Borrar ventas (conservar clientes)</button>
     <button class="btn sm danger" id="wipe">Borrar todos los datos</button></div>
   <div class="card form"><span class="lbl">Exportar / importar datos</span>
     <button class="btn sm" id="ex">Exportar respaldo (.json)</button>
@@ -382,11 +395,19 @@ function vAjustes() {
       if (confirm('Esto reemplazará los datos actuales. ¿Continuar?')) { S = { ...mkDef(), ...d }; save(); applyTheme(); toast('Datos importados'); vAjustes(); }
     } catch (x) { toast('Archivo no válido'); }
   };
+  $('#rst').onclick = async () => {
+    if (!confirm('¿Borrar TODAS las ventas, eventos y pagos? Los clientes y ajustes se conservan. Con la sincronización activa, también se borran en la nube y en los otros dispositivos.')) return;
+    S.sales = []; S.events = []; S.pay = {}; S.ship = {}; S.sent = {};
+    Object.keys(S.tomb).forEach(k => { if (!k.startsWith('client:')) delete S.tomb[k]; });
+    S.resetAt = Date.now(); save(); toast('Ventas borradas');
+    if (autoOn()) await sync(false);
+    vAjustes();
+  };
   $('#wipe').onclick = () => { if (confirm('¿Borrar TODOS los datos de este dispositivo? Si la sincronización está activa, volverán a bajarse desde GitHub.')) { S = { ...mkDef() }; save(); applyTheme(); toast('Datos borrados'); vAjustes(); } };
 }
 
-/* ---------- sincronización con GitHub ---------- */
-const SK = 'clementina.sync', GH = 'https://api.github.com/repos/';
+/* ---------- sincronización con GitHub (clientes.json, ventas.json, ajustes.json) ---------- */
+const SK = 'clementina.sync', GH = 'https://api.github.com/repos/', SYNCF = ['clientes', 'ventas', 'ajustes'];
 const getCfg = () => { try { return JSON.parse(localStorage.getItem(SK) || '{}'); } catch (e) { return {}; } };
 const setCfg = c => localStorage.setItem(SK, JSON.stringify(c));
 const autoOn = () => { const c = getCfg(); return !!(c.repo && c.token && c.auto !== false); };
@@ -395,13 +416,19 @@ const b64e = s => { const b = new TextEncoder().encode(s); let o = ''; for (let 
 const b64d = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, '')), c => c.charCodeAt(0)));
 const byId = (a, b) => (a.id < b.id ? -1 : 1);
 const sortKeys = o => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
-function core() {
-  return { v: 1, clients: [...S.clients].sort(byId), events: [...S.events].sort(byId), sales: [...S.sales].sort(byId), pay: sortKeys(S.pay), tomb: sortKeys(S.tomb), tpl: S.tpl, detail: S.detail, tplU: S.tplU || 0 };
+function parts() {
+  const tp = f => sortKeys(Object.fromEntries(Object.entries(S.tomb).filter(([k]) => f(k))));
+  return {
+    clientes: { v: 2, clients: [...S.clients].sort(byId), tomb: tp(k => k.startsWith('client:')) },
+    ventas: { v: 2, events: [...S.events].sort(byId), sales: [...S.sales].sort(byId), pay: sortKeys(S.pay), ship: sortKeys(S.ship), tomb: tp(k => !k.startsWith('client:')), resetAt: S.resetAt || 0 },
+    ajustes: { v: 2, tpl: S.tpl, detail: S.detail, tplU: S.tplU || 0 }
+  };
 }
-/* mezcla los datos remotos con los locales (gana lo más reciente; lo borrado queda borrado) */
+/* mezcla datos remotos con los locales (gana lo más reciente; lo borrado queda borrado) */
 function merge(r) {
   if (!r) return;
-  S.tomb = S.tomb || {}; S.pay = S.pay || {};
+  S.tomb = S.tomb || {}; S.pay = S.pay || {}; S.ship = S.ship || {};
+  S.resetAt = Math.max(S.resetAt || 0, r.resetAt || 0);
   Object.entries(r.tomb || {}).forEach(([k, t]) => { if (!(S.tomb[k] >= t)) S.tomb[k] = t; });
   const mergeList = (name, type) => {
     const m = new Map(S[name].map(x => [x.id, x]));
@@ -420,10 +447,18 @@ function merge(r) {
     const p = Math.max(S.pay[k] || 0, (r.pay || {})[k] || 0), t = S.tomb['pay:' + k] || 0;
     if (p && p > t) S.pay[k] = p; else delete S.pay[k];
   });
+  Object.entries(r.ship || {}).forEach(([k, o]) => { if (!S.ship[k] || (o.u || 0) > (S.ship[k].u || 0)) S.ship[k] = o; });
   if ((r.tplU || 0) > (S.tplU || 0)) { S.tpl = r.tpl; S.detail = r.detail; S.tplU = r.tplU; }
+  const ra = S.resetAt;   /* "borrar ventas": todo lo anterior a esta marca se descarta */
+  if (ra) {
+    S.events = S.events.filter(x => (x.u || 0) >= ra); S.sales = S.sales.filter(x => (x.u || 0) >= ra);
+    Object.keys(S.pay).forEach(k => { if (S.pay[k] < ra) delete S.pay[k]; });
+    Object.keys(S.ship).forEach(k => { if ((S.ship[k].u || 0) < ra) delete S.ship[k]; });
+    Object.keys(S.tomb).forEach(k => { if (!k.startsWith('client:') && S.tomb[k] < ra) delete S.tomb[k]; });
+  }
 }
-async function ghGet(c) {
-  const u = GH + c.repo + '/contents/datos.json';
+async function ghGet(c, f) {
+  const u = GH + c.repo + '/contents/' + f + '.json';
   const r = await fetch(u, { headers: hdr(c), cache: 'no-store' });
   if (r.status === 404) {
     const rr = await fetch(GH + c.repo, { headers: hdr(c), cache: 'no-store' });
@@ -437,9 +472,12 @@ async function ghGet(c) {
   else txt = await (await fetch(u, { headers: { ...hdr(c), Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' })).text();
   return { sha: j.sha, data: JSON.parse(txt) };
 }
-async function ghPut(c, sha, obj) {
-  const r = await fetch(GH + c.repo + '/contents/datos.json', { method: 'PUT', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync ' + new Date().toISOString(), content: b64e(JSON.stringify(obj)), ...(sha ? { sha } : {}) }) });
+async function ghPut(c, f, sha, obj) {
+  const r = await fetch(GH + c.repo + '/contents/' + f + '.json', { method: 'PUT', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sync ' + f + ' ' + new Date().toISOString(), content: b64e(JSON.stringify(obj)), ...(sha ? { sha } : {}) }) });
   if (!r.ok) throw { status: r.status };
+}
+async function ghDel(c, f, sha) {
+  await fetch(GH + c.repo + '/contents/' + f + '.json', { method: 'DELETE', headers: { ...hdr(c), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Migración a archivos separados', sha }) });
 }
 const errMsg = e => e.status === 401 ? 'Token inválido o vencido' : e.status === 403 ? 'Sin permiso: revisa Contents → Read and write' : e.status === 404 ? 'No se encuentra el repositorio (revisa usuario/nombre y el acceso del token)' : e.status ? 'Error de GitHub ' + e.status : 'Sin conexión';
 let syncing = false, timer = 0;
@@ -459,17 +497,26 @@ async function sync(silent) {
   try {
     let changed = false;
     for (let i = 0; i < 3; i++) {
-      const { sha, data } = await ghGet(c);
-      const before = JSON.stringify(core());
-      merge(data);
-      changed = changed || JSON.stringify(core()) !== before;
+      const got = await Promise.all(SYNCF.map(f => ghGet(c, f)));
+      const leg = c.migrated ? null : await ghGet(c, 'datos');   /* archivo único de la versión anterior */
+      const before = JSON.stringify(parts());
+      if (leg && leg.data) merge(leg.data);
+      got.forEach(g => g.data && merge(g.data));
+      changed = changed || JSON.stringify(parts()) !== before;
       persist();
-      const body = core();
-      if (data && JSON.stringify({ ...data, at: undefined }) === JSON.stringify(body)) break;
-      try { await ghPut(c, sha, { ...body, at: Date.now() }); break; }
-      catch (e) { if ((e.status === 409 || e.status === 422) && i < 2) continue; throw e; }
+      const now = parts();
+      let conflict = false;
+      for (let k = 0; k < SYNCF.length; k++) {
+        const f = SYNCF[k], g = got[k];
+        if (g.data && JSON.stringify({ ...g.data, at: undefined }) === JSON.stringify(now[f])) continue;
+        try { await ghPut(c, f, g.sha, { ...now[f], at: Date.now() }); }
+        catch (e) { if (e.status === 409 || e.status === 422) { conflict = true; break; } throw e; }
+      }
+      if (conflict) { if (i < 2) continue; throw { status: 409 }; }
+      if (leg && leg.sha) { try { await ghDel(c, 'datos', leg.sha); } catch (e) { } }
+      break;
     }
-    setCfg({ ...getCfg(), last: Date.now() });
+    setCfg({ ...getCfg(), last: Date.now(), migrated: true });
     if (!silent) toast('Sincronizado ✓');
     afterSync(changed);
   } catch (e) { if (!silent || e.status === 401 || e.status === 403) toast(errMsg(e)); }
